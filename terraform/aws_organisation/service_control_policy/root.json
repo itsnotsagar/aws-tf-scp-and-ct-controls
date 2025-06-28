@@ -1,0 +1,15 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "TestSCPDenyS3Delete",
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteBucket"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
