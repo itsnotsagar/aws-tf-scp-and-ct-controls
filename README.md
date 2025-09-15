@@ -1,229 +1,411 @@
-# tf-aws-scp
+# AWS Terraform SCP and Control Tower Controls
 
-## Add your files
+A comprehensive Terraform solution for managing AWS Service Control Policies (SCPs) and AWS Control Tower controls across your AWS Organization. This project provides a unified approach to implement both custom SCPs and AWS Control Tower's built-in preventive controls.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## Table of Contents
 
-```
-cd existing_repo
-git remote add origin https://gitlab.rnd.nxp.com/ccoet/gitlab-poc/aws-tf-scp.git
-git branch -M main
-git push -uf origin main
-```
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Control Tower Controls](#control-tower-controls)
+- [Custom SCPs](#custom-scps)
+- [GitLab CI/CD Pipeline](#gitlab-cicd-pipeline)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
-## Guardrails/SCP
+## Overview
 
-Control Tower only allows enabling/disabling pre-defined controls (preventive controls – SCP) which can’t be modified.
-[AWS Documentation - Control Tower](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/deploy-and-manage-aws-control-tower-controls-by-using-terraform.html)
+This repository contains Terraform modules and configurations to:
 
-CfCT can be deployed on top of Control Tower to give SCP customization functionality, but it relies on CodeCommit, CodePipeline and CodeBuild, services we are trying to move away from.
-[AWS Documentation - CfCT](https://docs.aws.amazon.com/controltower/latest/userguide/cfcn-set-up-custom-scps.html)
+- Deploy and manage custom Service Control Policies (SCPs) across AWS Organizations
+- Enable and configure AWS Control Tower preventive controls
+- Automate deployment through GitLab CI/CD pipelines
+- Provide granular control over AWS resource access and compliance
 
-For Deploying custom SCPs we will be making use of AWS organisation terraform modules and for enabling AWS Control Tower's control we will be making use of AWS Control Tower terraform modules.
+## Architecture
+
+The solution is structured into two main components:
+
+1. **Custom SCPs** (`terraform/aws_organization/`) - For deploying custom Service Control Policies
+2. **Control Tower Controls** (`terraform/control_tower/`) - For enabling AWS Control Tower's built-in controls
+
+### Why This Approach?
+
+**Control Tower Limitations:**
+- Control Tower only allows enabling/disabling pre-defined controls (preventive controls – SCP) which can't be modified
+- [AWS Documentation - Control Tower](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/deploy-and-manage-aws-control-tower-controls-by-using-terraform.html)
+
+**Alternative Solutions:**
+- CfCT (Customizations for Control Tower) can be deployed on top of Control Tower for SCP customization, but relies on CodeCommit, CodePipeline and CodeBuild services
+- [AWS Documentation - CfCT](https://docs.aws.amazon.com/controltower/latest/userguide/cfcn-set-up-custom-scps.html)
+
+**Our Solution:**
+- Custom SCPs: AWS Organization Terraform modules for complete customization
+- Control Tower Controls: AWS Control Tower Terraform modules for built-in controls
+- GitLab CI/CD: Modern pipeline approach avoiding legacy AWS services
+
+## Prerequisites
+
+Before using this solution, ensure you have:
+
+- AWS Organization set up with appropriate permissions
+- AWS Control Tower deployed (for Control Tower controls)
+- Terraform >= 1.0 installed
+- GitLab CI/CD runner with AWS credentials configured
+- Appropriate IAM permissions for:
+  - Managing AWS Organizations
+  - Managing Service Control Policies
+  - Managing Control Tower controls
+
+### Required AWS Permissions
+
+The deployment requires the following AWS permissions:
+- `organizations:*`
+- `controltower:*`
+- `iam:CreateRole`
+- `iam:AttachRolePolicy`
+- `iam:CreatePolicy`
+
+## Quick Start
+
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd aws-tf-scp-and-ct-controls
+   ```
+
+2. **Configure your SCPs and Controls:**
+   - For Control Tower controls: Edit `terraform/control_tower/variables.tfvars`
+   - For custom SCPs: Add JSON policies to `terraform/aws_organization/service_control_policy/`
+
+3. **Deploy via GitLab CI/CD:**
+   - Create a merge request to trigger planning
+   - Merge to main branch to apply changes
 
 ## Control Tower Controls
 
-For enabling AWS Control Tower's control navigate to `control_tower/variables.tfvars` directory
+AWS Control Tower provides pre-built preventive controls that can be enabled across your organization.
 
-```
+### Configuration
+
+Navigate to `terraform/control_tower/variables.tfvars` and configure your controls:
+
+```hcl
+# Basic controls without parameters
 controls = [
     {
         control_names = [
             "503uicglhjkokaajywfpt6ros", # AWS-GR_ENCRYPTED_VOLUMES
-            ...
+            "50z1ot237wl8u1lv5ufau6qqo", # AWS-GR_SUBNET_AUTO_ASSIGN_PUBLIC_IP_DISABLED
+            "5g1xmq8lzwwxkqjd7g3k8nkxs", # AWS-GR_EC2_INSTANCE_NO_PUBLIC_IP
         ],
-        organizational_unit_ids = ["ou-1111-11111111", "ou-2222-22222222"...],
+        organizational_unit_ids = ["ou-1111-11111111", "ou-2222-22222222"],
     },
     {
         control_names = [
-            "50z1ot237wl8u1lv5ufau6qqo", # AWS-GR_SUBNET_AUTO_ASSIGN_PUBLIC_IP_DISABLED
-            ...
+            "4g8m7q9n3p5r8s2t6v1w4x7z", # AWS-GR_S3_BUCKET_PUBLIC_ACCESS_PROHIBITED
         ],
-        organizational_unit_ids = ["ou-1111-11111111"...],
+        organizational_unit_ids = ["ou-3333-33333333"],
     }
 ]
 
+# Controls with parameters (for advanced configuration)
 controls_with_params = [
-  {
-    control_names = [
-      {
-        "9sqqct2tcfsnr10yl4f2av1mq" = { # CT.EC2.PV.6
-          parameters = {
-            "ExemptedPrincipalArns" : ["arn:aws:iam::*:role/RoleName"]
-          }
-        }
-      }
-    ],
-    organizational_unit_ids = [],
-  },
     {
-    control_names = [
-      {
-        "9sqqct2tcfsnr10yl4f2av1mq" = { # CT.EC2.PV.6
-          parameters = {
-            "ExemptedPrincipalArns" : ["arn:aws:iam::*:role/RoleName"]
-          }
-        }
-      }
-    ],
-    organizational_unit_ids = ["ou-2222-22222222"...],
-  }
+        control_names = [
+            {
+                "9sqqct2tcfsnr10yl4f2av1mq" = { # CT.EC2.PV.6
+                    parameters = {
+                        "ExemptedPrincipalArns" : [
+                            "arn:aws:iam::*:role/AdminRole",
+                            "arn:aws:iam::123456789012:role/SpecificRole"
+                        ]
+                    }
+                }
+            }
+        ],
+        organizational_unit_ids = ["ou-1111-11111111"],
+    }
 ]
 ```
 
-Keep in mind that controls can only be applied to OUs and not the root OU directly.
+### Important Notes
 
-Control Tower's individual preventive controls don't create separate SCPs instead all the controls which are enabled for an OU are put in a single SCP as long as it has space left and then any other control after that will be put in the next SCP once the size is exhausted.
+- **OU Restrictions:** Controls can only be applied to Organizational Units (OUs), not the root OU directly
+- **SCP Consolidation:** Control Tower consolidates multiple controls into single SCPs when possible
+- **Size Limits:** When SCP size limits are reached, additional controls create new SCPs
 
-For getting the control_names/identifiers refer to [Controls Reference Guide](https://docs.aws.amazon.com/controltower/latest/controlreference/all-global-identifiers.html).
+### Finding Control Identifiers
 
-AWS Control Tower doesn't allow making changes to the SCP as such but it does allow to make configuration changes to the SCP. For making configuration changes to the SCPs make use of controls_with_params list.
+Use the [AWS Control Tower Controls Reference Guide](https://docs.aws.amazon.com/controltower/latest/controlreference/all-global-identifiers.html) to find control identifiers.
 
-For checking which all controls support parameters, refer to [AWS - Parameterized Controls](https://docs.aws.amazon.com/controltower/latest/controlreference/control-parameter-concepts.html).
+### Parameterized Controls
 
-##### More on parameterized controls -
+Some controls support configuration parameters. For a complete list, see [AWS Parameterized Controls Documentation](https://docs.aws.amazon.com/controltower/latest/controlreference/control-parameter-concepts.html).
 
-In AWS Control Tower, RCP-based and certain SCP-based controls support configuration. These controls contain elements that are included by AWS Control Tower conditionally, based on the configuration you select.
+#### Supported Parameters
 
-For example, some control policies include inline templating variables, such as the one shown in the example that follows. The example shows the ExemptedPrincipalArns parameter.
+- **ExemptedPrincipalArns:** IAM principal ARNs exempt from the control
+- **AllowedRegions:** AWS Regions exempt from the control  
+- **ExemptedActions:** IAM actions exempt from the control
+- **ExemptedResourceArns:** Resource ARNs exempt from the control
 
-```
- {
-            "Sid": "CTEC2PV1",
-            "Effect": "Deny",
-            "Action": [
-                "ec2:CreateSnapshot",
-                "ec2:CreateSnapshots"
-            ],
-            "Resource": "arn:*:ec2:*:*:volume/*",
-            "Condition": {
-                "Bool": {
-                    "ec2:Encrypted": "false"
-                }{% if ExemptedPrincipalArns %},
-                "ArnNotLike": {
-                    "aws:PrincipalArn": {{ExemptedPrincipalArns}}
-                }{% endif %}
-            }
-        }
-```
+#### Parameter Example
 
-
-A control may support any of the following four configuration parameters:
-
-- ExemptedPrincipalArns: A list of AWS IAM principal ARNs that are exempted from this control.
-
-  - This parameter allows you to exempt IAM Principals from this control by way of an ArnNotLikeIfExists condition key operator and aws:PrincipalArn condition key that is applied to the control policy by AWS Control Tower when you enable the control. The ExemptedPrincipalArns parameter allows you to use the wildcard character (*) in the IAM principal ARNs that you specify. You can use the wildcard character to exempt all IAM principals in an AWS account, or exempt a common principal across multiple AWS accounts.
-
-  - When you use the wildcard character to exempt principals, be sure that you follow the principal of least privilege: include only those IAM principal ARNs that you require to be exempt from a control. Otherwise, if your exemptions are too broad, the control may not come into effect when you intend it to.
-
-- AllowedRegions: List of AWS Regions exempted from the control.
-
-- ExemptedActions: List of AWS IAM actions exempted from the control.
-
-- ExemptedResourceArns: List of resource ARNs exempted from the control.
-
-## Custom SCPs
-
-For deploying custom SCPs navigate to `aws_organization/scp_config.tf` directory
-
-Put the SCP json in the `service_control_policy` folder and give it a name, this name will be taken as the name for SCPs without the `.json` extension.
-
-`scp_config.tf` contains the configuration for deploying the SCP
-
-```
-locals {
-  ou_map = {
-    "r-wkup"       = ["root"]
-    #"ou-example-1" = ["root", "scp1"]
-    // You can add or remove entries here as needed
-  }
+```json
+{
+    "Sid": "CTEC2PV1",
+    "Effect": "Deny",
+    "Action": [
+        "ec2:CreateSnapshot",
+        "ec2:CreateSnapshots"
+    ],
+    "Resource": "arn:*:ec2:*:*:volume/*",
+    "Condition": {
+        "Bool": {
+            "ec2:Encrypted": "false"
+        }{% if ExemptedPrincipalArns %},
+        "ArnNotLike": {
+            "aws:PrincipalArn": {{ExemptedPrincipalArns}}
+        }{% endif %}
+    }
 }
 ```
 
-Put the OU ID and the names of the SCPs that you want to attach to that OU (without the .json extension) in the ou_map dictionary
+## Custom SCPs
 
-`"ou-example-1" = ["root", "scp1"]`
+Custom SCPs provide complete control over AWS resource access policies.
 
-Only 5 SCPs in total can be attached to an OU
+### Configuration
 
-## Gitlab pipeline
+1. **Create SCP JSON files:**
+   Place your SCP JSON files in `terraform/aws_organization/service_control_policy/`
+   
+   Example: `terraform/aws_organization/service_control_policy/deny-root-access.json`
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Sid": "DenyRootAccess",
+               "Effect": "Deny",
+               "Principal": {
+                   "AWS": "*"
+               },
+               "Action": "*",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:PrincipalType": "Root"
+                   }
+               }
+           }
+       ]
+   }
+   ```
 
-The gitlab pipeline contains two stages (plan and apply)
+2. **Configure OU mappings:**
+   Edit `terraform/aws_organization/scp-config.tf`:
+   
+   ```hcl
+   locals {
+       ou_map = {
+           "r-wkup"           = ["root"]                    # Root OU with default policy
+           "ou-1111-11111111" = ["root", "deny-root-access"] # Security OU with custom policy
+           "ou-2222-22222222" = ["root", "restrict-regions", "deny-root-access"] # Multi-policy OU
+       }
+   }
+   ```
+
+### SCP Limitations
+
+- Maximum 5 SCPs per OU
+- Maximum SCP size: 5,120 characters
+- SCP names are derived from JSON filenames (without .json extension)
+
+### Example SCP Policies
+
+#### Restrict AWS Regions
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "RestrictRegions",
+            "Effect": "Deny",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:RequestedRegion": [
+                        "us-east-1",
+                        "us-west-2",
+                        "eu-west-1"
+                    ]
+                }
+            }
+        }
+    ]
+}
 ```
+
+#### Prevent Root User Actions
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PreventRootActions",
+            "Effect": "Deny",
+            "Action": [
+                "iam:*",
+                "organizations:*",
+                "account:*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:PrincipalType": "Root"
+                }
+            }
+        }
+    ]
+}
+```
+
+## GitLab CI/CD Pipeline
+
+The pipeline provides automated planning and deployment with separate workflows for each component.
+
+### Pipeline Structure
+
+```yaml
 stages:
   - terraform-plan
   - terraform-apply
 ```
 
-Custom SCP has its own terraform plan and apply (aws_organization folder)
-```
-terraform-plan-aws-org:
-  stage: terraform-plan
-  tags:
-    - optimized-test-org
-  script:
-    - cd terraform/aws_organization
-    - terraform init
-    - terraform plan -out=tfplan
-  artifacts:
-    paths:
-      - terraform/aws_organization/tfplan
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
-      changes:
-        - terraform/aws_organization/**
+### Pipeline Jobs
 
-terraform-apply-aws-org:
-  stage: terraform-apply
-  tags:
-    - optimized-test-org
-  needs:
-    - job: terraform-plan-aws-org
-      optional: true
-      artifacts: true
-  script:
-    - cd terraform/aws_organization
-    - terraform init
-    - terraform apply -auto-approve
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - terraform/aws_organization/**/*
-```
+#### AWS Organization (Custom SCPs)
+- **Plan:** `terraform-plan-aws-org`
+- **Apply:** `terraform-apply-aws-org`
+- **Trigger:** Changes to `terraform/aws_organization/**`
 
-Control Tower builtin SCP has its own terraform plan and apply (control_tower folder)
-```
-terraform-plan-control-tower:
-  stage: terraform-plan
-  tags:
-    - optimized-test-org
-  script:
-    - cd terraform/control_tower
-    - terraform init
-    - terraform plan -var-file="variables.tfvars" -out=tfplan
-  artifacts:
-    paths:
-      - terraform/control_tower/tfplan
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
-      changes:
-        - terraform/control_tower/**
+#### Control Tower Controls
+- **Plan:** `terraform-plan-control-tower`  
+- **Apply:** `terraform-apply-control-tower`
+- **Trigger:** Changes to `terraform/control_tower/**`
 
-terraform-apply-control-tower:
-  stage: terraform-apply
-  tags:
-    - optimized-test-org
-  needs:
-    - job: terraform-plan-control-tower
-      optional: true
-      artifacts: true
-  script:
-    - cd terraform/control_tower
-    - terraform init
-    - terraform apply -var-file="variables.tfvars" -auto-approve
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - terraform/control_tower/**/*
-```
+### Pipeline Execution
+
+1. **Merge Request:** Triggers planning jobs for changed components
+2. **Main Branch:** Triggers apply jobs for changed components
+3. **Artifacts:** Plan files are stored and passed to apply jobs
+
+### Runner Requirements
+
+Ensure your GitLab runners have:
+- Terraform installed
+- AWS CLI configured
+- Appropriate AWS credentials
+- Network access to AWS APIs
+
+## Best Practices
+
+### Security
+- Use least privilege principles in SCP design
+- Regularly review and audit applied policies
+- Test SCPs in non-production environments first
+- Use parameterized controls for flexibility
+
+### Organization
+- Use descriptive names for SCP JSON files
+- Group related policies logically
+- Document policy purposes and impacts
+- Maintain version control for all changes
+
+### Deployment
+- Always review Terraform plans before applying
+- Use merge requests for all changes
+- Monitor AWS CloudTrail for policy violations
+- Implement proper backup and rollback procedures
+
+### Performance
+- Minimize SCP complexity to reduce evaluation time
+- Consolidate similar policies when possible
+- Use specific resource ARNs instead of wildcards when feasible
+
+## Troubleshooting
+
+### Common Issues
+
+#### SCP Size Exceeded
+**Error:** Policy document exceeds maximum size
+**Solution:** Split large policies into multiple smaller SCPs
+
+#### Control Not Found
+**Error:** Invalid control identifier
+**Solution:** Verify control ID in [AWS Controls Reference](https://docs.aws.amazon.com/controltower/latest/controlreference/all-global-identifiers.html)
+
+#### OU Not Found
+**Error:** Organizational Unit does not exist
+**Solution:** Verify OU ID in AWS Organizations console
+
+#### Permission Denied
+**Error:** Insufficient permissions to apply policy
+**Solution:** Ensure runner has required AWS permissions
+
+### Debugging Steps
+
+1. **Check Terraform State:**
+   ```bash
+   terraform state list
+   terraform state show <resource>
+   ```
+
+2. **Validate Configurations:**
+   ```bash
+   terraform validate
+   terraform plan -detailed-exitcode
+   ```
+
+3. **Review AWS Logs:**
+   - CloudTrail logs for API calls
+   - Control Tower logs for control deployment
+   - Organization logs for SCP changes
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a merge request
+
+### Development Guidelines
+
+- Follow Terraform best practices
+- Update documentation for any changes
+- Test changes in development environment
+- Use conventional commit messages
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For questions or issues:
+- Create an issue in this repository
+- Review AWS documentation for Control Tower and Organizations
+- Consult Terraform AWS provider documentation
+
+## References
+
+- [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/)
+- [AWS Organizations Documentation](https://docs.aws.amazon.com/organizations/)
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [AWS Control Tower Controls Reference](https://docs.aws.amazon.com/controltower/latest/controlreference/)
