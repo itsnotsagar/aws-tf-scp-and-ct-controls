@@ -1,0 +1,73 @@
+stages:
+  - terraform-plan
+  - terraform-apply
+
+# --- AWS Organization Plan ---
+terraform-plan-aws-org:
+  stage: terraform-plan
+  tags:
+    - test-runner
+  script:
+    - cd terraform/aws_organization
+    - terraform init
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - terraform/aws_organization/tfplan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+      changes:
+        - terraform/aws_organization/**
+
+# --- Control Tower Plan ---
+terraform-plan-control-tower:
+  stage: terraform-plan
+  tags:
+    - optimized-test-org
+  script:
+    - cd terraform/control_tower
+    - terraform init
+    - terraform plan -var-file="variables.tfvars" -out=tfplan
+  artifacts:
+    paths:
+      - terraform/control_tower/tfplan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+      changes:
+        - terraform/control_tower/**
+
+# --- AWS Organization Apply ---
+terraform-apply-aws-org:
+  stage: terraform-apply
+  tags:
+    - test-runner
+  needs:
+    - job: terraform-plan-aws-org
+      optional: true
+      artifacts: true
+  script:
+    - cd terraform/aws_organization
+    - terraform init
+    - terraform apply -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - terraform/aws_organization/**/*
+
+# --- Control Tower Apply ---
+terraform-apply-control-tower:
+  stage: terraform-apply
+  tags:
+    - test-runner
+  needs:
+    - job: terraform-plan-control-tower
+      optional: true
+      artifacts: true
+  script:
+    - cd terraform/control_tower
+    - terraform init
+    - terraform apply -var-file="variables.tfvars" -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - terraform/control_tower/**/*
