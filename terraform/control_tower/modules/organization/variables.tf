@@ -31,5 +31,5 @@ variable "aws_region" {
 # Defining Account Id
 variable "account_id" {
   type = string
-  default = "973642793185" #master account
+  default = "210987654321" #master account
 }

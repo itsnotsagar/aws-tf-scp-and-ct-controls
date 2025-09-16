@@ -212,7 +212,7 @@ Custom SCPs provide complete control over AWS resource access policies.
    ```hcl
    locals {
        ou_map = {
-           "r-wkup"           = ["root"]                    # Root OU with default policy
+           "r-juup"           = ["root"]                    # Root OU with default policy
            "ou-1111-11111111" = ["root", "deny-root-access"] # Security OU with custom policy
            "ou-2222-22222222" = ["root", "restrict-regions", "deny-root-access"] # Multi-policy OU
        }

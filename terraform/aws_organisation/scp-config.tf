@@ -1,6 +1,6 @@
 locals {
   ou_map = {
-    "r-wkup"           = ["root"],
+    "r-uukp"           = ["root"],
     "ou-wkup-o3h1m8yn" = ["staging-ou"]
     #"ou-example-1" = ["root", "scp1"]
     // You can add or remove entries here as needed
